@@ -79,9 +79,6 @@ rm : Remove site
         elif arg == 'x':
             return
 
-  
-def show_list(user):
-    pass
 
 # writes the master password to the users .config file and ensures only user has read and write permissions to it
 def write_config(user, hashed_master):
@@ -97,26 +94,20 @@ def get_password():
 def generate_password(user):
     service = input('''enter the name of the service you want to generate a password for
 > ''')
-    username = input('''enter your username for the service (enter if you do not want to store the username)
-> ''')
-    print(service, username)
     charset = string.ascii_letters + string.punctuation + string.digits
     encryption_key = generate_encryption_key(user)
     s = secrets.SystemRandom()
     s.seed(encryption_key)
     password = ''.join(s.choice(charset) for _ in range(16))
-    write_site(user, username, service, password)
+    write_site(user, service, password)
     print(password)
 
 
-def write_site(user, username, service, password):
+def write_site(user, service, password):
     with open(service, 'wb') as file:
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
         encrypted_password = cipher.encrypt(password.encode())
         file.write(encrypted_password)
-    with open(service, 'a') as file:
-        file.write('\n')
-        file.write(username)
     os.chmod(service, 0o600)
     
 def show_password(user):
@@ -134,7 +125,7 @@ def show_password(user):
 
 def generate_encryption_key(user):
     #TODO create proper salt
-    salt = 'salt'.encode()
+    salt = os.urandom(16)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
         length=32,

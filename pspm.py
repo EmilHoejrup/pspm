@@ -73,7 +73,7 @@ rm : Remove site
         print(menu_options)
         arg = input("> ").lower()
         if arg == "l":
-            show_list(user)
+            show_password(user)
         elif arg == 'g':
             generate_password(user)
         elif arg == 'x':
@@ -93,10 +93,6 @@ def write_config(user, hashed_master):
 def get_password():
     return getpass.getpass("Enter master password: ")
 
-
-def show_password(service):
-    if get_password() == "123":
-        print("works")
         
 def generate_password(user):
     service = input('''enter the name of the service you want to generate a password for
@@ -122,6 +118,18 @@ def write_site(user, username, service, password):
         file.write('\n')
         file.write(username)
     os.chmod(service, 0o600)
+    
+def show_password(user):
+    service = input("what site do you want the password for? \n >")
+    try:
+        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
+        with open(service, 'rb') as file:
+            encrypted_password = file.readline()
+        decrypted_password = cipher.decrypt(encrypted_password).decode()
+        print(decrypted_password)
+    except IOError:
+        print("site " + service + " not found")
+ 
 
 
 def generate_encryption_key(user):

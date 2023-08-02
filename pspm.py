@@ -1,8 +1,13 @@
 import argparse
 import getpass
 import os
-from zxcvbn import zxcvbn
 import argon2
+import secrets
+import string
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from zxcvbn import zxcvbn
 
 
 def init(user):
@@ -29,9 +34,6 @@ def create_master_password(user):
             return password
     
 
-def generate_encryption_key(master):
-    pass
-
 def login(user):
     while True:
         provided_master = get_password()
@@ -57,12 +59,13 @@ def get_master(user):
 
 def menu(user):
     menu_options = '''\
+
 Options:
 
-l : Show list of sites
-g : Generate new password
-x : Exit
-rm: Remove site
+l  : Show list of sites
+g  : Generate new password
+x  : Exit
+rm : Remove site
 '''
     while True:
         print(menu_options)
@@ -78,6 +81,7 @@ rm: Remove site
 def show_list(user):
     pass
 
+# writes the master password to the users .config file and ensures only user has read and write permissions to it
 def write_config(user, hashed_master):
     config_file = ".config_" + user
     with open(config_file, 'w') as config:
@@ -92,9 +96,31 @@ def show_password(service):
     if get_password() == "123":
         print("works")
         
-def generate_password(service):
-    pass
+def generate_password(user):
+    service = input('''enter the name of the service you want to generate a password for
+> ''')
+    username = input('''enter your username for the service (enter if you do not want to store the username)
+> ''')
+    print(service, username)
+    charset = string.ascii_letters + string.punctuation + string.digits
+    encryption_key = generate_encryption_key(user)
+    s = secrets.SystemRandom()
+    s.seed(encryption_key)
+    password = ''.join(s.choice(charset) for _ in range(16))
+    print(password)
 
+
+def generate_encryption_key(user):
+    #TODO create proper salt
+    salt = 'salt'.encode()
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256,
+        length=64,
+        salt=salt,
+        iterations=100000,
+        backend=default_backend
+    )
+    return kdf.derive(get_master(user).encode())
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

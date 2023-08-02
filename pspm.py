@@ -34,11 +34,26 @@ def generate_encryption_key(master):
 
 def login(user):
     while True:
-        if get_password() == "123":
+        provided_master = get_password()
+        stored_master = get_master(user)
+        if authenticate(stored_master, provided_master):
             menu(user)
+            return
         else:
             print("incorrect password or username")
 
+
+def authenticate(stored, provided):
+    try:
+        argon2.PasswordHasher().verify(stored, provided)
+        return True
+    except argon2.exceptions.VerifyMismatchError:
+        return False
+
+
+def get_master(user):
+   with open(".config_" + user) as config:
+       return config.read() 
 
 def menu(user):
     menu_options = '''\

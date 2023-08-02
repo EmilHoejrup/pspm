@@ -2,17 +2,21 @@ import argparse
 import getpass
 import os
 from zxcvbn import zxcvbn
+import argon2
 
 
 def init(user):
     master_password = create_master_password(user)
     hashed_master = hash_password(master_password)
-    write_config(user, master_password)
+    write_config(user, hashed_master)
     menu(user)
 
 
 def hash_password(password):
-    pass
+    # not sure if these parameters are optimal
+    params = {"time_cost": 30, "memory_cost": 102400, "parallelism": 8, "hash_len": 256}
+    return argon2.PasswordHasher(**params).hash(password.encode())
+    
 
 def create_master_password(user):
     while True:

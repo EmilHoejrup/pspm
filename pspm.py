@@ -4,9 +4,11 @@ import os
 import argon2
 import secrets
 import string
+import base64
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.fernet import Fernet
 from zxcvbn import zxcvbn
 
 
@@ -107,7 +109,19 @@ def generate_password(user):
     s = secrets.SystemRandom()
     s.seed(encryption_key)
     password = ''.join(s.choice(charset) for _ in range(16))
+    write_site(user, username, service, password)
     print(password)
+
+
+def write_site(user, username, service, password):
+    with open(service, 'wb') as file:
+        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
+        encrypted_password = cipher.encrypt(password.encode())
+        file.write(encrypted_password)
+    with open(service, 'a') as file:
+        file.write('\n')
+        file.write(username)
+    os.chmod(service, 0o600)
 
 
 def generate_encryption_key(user):
@@ -115,7 +129,7 @@ def generate_encryption_key(user):
     salt = 'salt'.encode()
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
-        length=64,
+        length=32,
         salt=salt,
         iterations=100000,
         backend=default_backend

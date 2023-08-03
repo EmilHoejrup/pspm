@@ -66,7 +66,7 @@ def authenticate(stored, provided):
 
 
 def get_master(user):
-   with open(".config_" + user) as config:
+    with open(".config_" + user) as config:
        return config.read() 
 
 def menu(user):
@@ -123,10 +123,12 @@ def write_site(user, service, password):
     os.chmod(path, 0o600)
     
 def show_password(user):
-    service = input("what site do you want the password for? \n >")
+    service = input("what site do you want the password for? \n > ")
+    cwd = os.getcwd()
+    path = cwd + "/" + user + "_vault/" + service
     try:
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
-        with open(service, 'rb') as file:
+        with open(path, 'rb') as file:
             encrypted_password = file.readline()
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         print(decrypted_password)
@@ -137,7 +139,7 @@ def show_password(user):
 
 def generate_encryption_key(user):
     #TODO create proper salt
-    salt = os.urandom(16)
+    salt = 'salt'.encode()
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
         length=32,

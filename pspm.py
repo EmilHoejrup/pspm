@@ -5,6 +5,7 @@ import argon2
 import secrets
 import string
 import base64
+import sys
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -26,15 +27,24 @@ def hash_password(password):
     
 
 def create_master_password(user):
+    #TODO check user does not already exist
     while True:
+        print("create new pspm user \n")
         password = get_password()
         results = zxcvbn(password, user_inputs=user)
+        # ensures that password has highest possible zxcvbn score
         if results['score'] != 4:
             print("password not strong enough ", results['feedback']['suggestions'])
         else:
-            print("pspm vault created for user", user)
-            return password
-    
+            try:
+                cwd = os.getcwd()
+                os.mkdir(cwd + "/" + user + "_vault")
+                print("pspm vault created for user", user)
+                return password
+            except FileExistsError:
+                print("user already exists! try a new username")
+                sys.exit()
+                
 
 def login(user):
     while True:
@@ -77,7 +87,7 @@ rm : Remove site
         elif arg == 'g':
             generate_password(user)
         elif arg == 'x':
-            return
+            sys.exit()
 
 
 # writes the master password to the users .config file and ensures only user has read and write permissions to it
@@ -104,11 +114,13 @@ def generate_password(user):
 
 
 def write_site(user, service, password):
-    with open(service, 'wb') as file:
+    cwd = os.getcwd()
+    path = cwd + "/" + user + "_vault/" + service
+    with open(path, 'wb') as file:
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
         encrypted_password = cipher.encrypt(password.encode())
         file.write(encrypted_password)
-    os.chmod(service, 0o600)
+    os.chmod(path, 0o600)
     
 def show_password(user):
     service = input("what site do you want the password for? \n >")

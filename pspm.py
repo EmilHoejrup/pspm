@@ -5,6 +5,8 @@ import argon2
 import secrets
 import string
 import base64
+import time
+import pyperclip
 import sys
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -110,7 +112,8 @@ def generate_password(user):
     s.seed(encryption_key)
     password = ''.join(s.choice(charset) for _ in range(16))
     write_site(user, service, password)
-    print(password)
+    copy_to_clipboard(password)
+
 
 
 def write_site(user, service, password):
@@ -131,11 +134,16 @@ def show_password(user):
         with open(path, 'rb') as file:
             encrypted_password = file.readline()
         decrypted_password = cipher.decrypt(encrypted_password).decode()
-        print(decrypted_password)
+        copy_to_clipboard(decrypted_password)
     except IOError:
         print("site " + service + " not found")
  
 
+def copy_to_clipboard(password):
+    pyperclip.copy(password)
+    print("Password copied to clipboard. It will be deleted in 15 sec")
+    time.sleep(15)
+    pyperclip.copy('')
 
 def generate_encryption_key(user):
     #TODO create proper salt

@@ -29,7 +29,6 @@ def hash_password(password):
     
 
 def create_master_password(user):
-    #TODO check user does not already exist
     while True:
         print("create new pspm user \n")
         password = get_password()
@@ -40,7 +39,10 @@ def create_master_password(user):
         else:
             try:
                 cwd = os.getcwd()
-                os.mkdir(cwd + "/" + user + "_vault")
+                path = cwd + "/" + user + "_vault"
+                os.mkdir(path)
+                #TODO proper chmod
+                # os.chmod(path, 0o600)
                 print("pspm vault created for user", user)
                 return password
             except FileExistsError:
@@ -107,7 +109,8 @@ def generate_password(user):
     service = input('''enter the name of the service you want to generate a password for
 > ''')
     charset = string.ascii_letters + string.punctuation + string.digits
-    encryption_key = generate_encryption_key(user)
+    salt = os.urandom(16)
+    encryption_key = generate_encryption_key(salt, user)
     s = secrets.SystemRandom()
     s.seed(encryption_key)
     password = ''.join(s.choice(charset) for _ in range(16))
@@ -119,10 +122,14 @@ def generate_password(user):
 def write_site(user, service, password):
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/" + service
+    salt = os.urandom(16)
+    # to avoid bug with newline in file - temporary fix
+    while b'\n' in salt:
+        salt = os.urandom(16)
     with open(path, 'wb') as file:
-        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
+        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
         encrypted_password = cipher.encrypt(password.encode())
-        file.write(encrypted_password)
+        file.writelines([salt + b'\n', encrypted_password])
     os.chmod(path, 0o600)
     
 def show_password(user):
@@ -130,24 +137,15 @@ def show_password(user):
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/" + service
     try:
-        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(user)))
         with open(path, 'rb') as file:
-            encrypted_password = file.readline()
+            salt, encrypted_password = file.read().splitlines()
+        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         copy_to_clipboard(decrypted_password)
     except IOError:
         print("site " + service + " not found")
  
-
-def copy_to_clipboard(password):
-    pyperclip.copy(password)
-    print("Password copied to clipboard. It will be deleted in 15 sec")
-    time.sleep(15)
-    pyperclip.copy('')
-
-def generate_encryption_key(user):
-    #TODO create proper salt
-    salt = 'salt'.encode()
+def generate_encryption_key(salt, user):
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
         length=32,
@@ -156,6 +154,13 @@ def generate_encryption_key(user):
         backend=default_backend
     )
     return kdf.derive(get_master(user).encode())
+
+def copy_to_clipboard(password):
+    pyperclip.copy(password)
+    print("Password copied to clipboard. It will be deleted in 5 sec")
+    time.sleep(5)
+    pyperclip.copy('')
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

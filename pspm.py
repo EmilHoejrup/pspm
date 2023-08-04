@@ -80,6 +80,7 @@ def menu(user):
 Options:
 
 l  : Show list of sites
+s  : get password for site
 g  : Generate new password
 x  : Exit
 rm : Remove site
@@ -87,14 +88,25 @@ rm : Remove site
     while True:
         print(menu_options)
         arg = input("> ").lower()
-        if arg == "l":
+        if arg == "s":
             show_password(user)
+        elif arg == "l":
+            list_sites(user)
         elif arg == "rm":
             remove_password(user)
         elif arg == "g":
             generate_password(user)
         elif arg == "x":
             sys.exit()
+            
+def list_sites(user):
+    cwd = os.getcwd()
+    path = cwd + "/" + user + "_vault/"
+    print("your stored passwords are:")
+    sites = os.listdir(path)
+    for s in sites:
+        print(s)
+
 
 def remove_password(user):
     service = input("enter name of site to remove \n > ")

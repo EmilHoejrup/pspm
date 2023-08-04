@@ -41,8 +41,8 @@ def create_master_password(user):
                 cwd = os.getcwd()
                 path = cwd + "/" + user + "_vault"
                 os.mkdir(path)
-                # TODO proper chmod
-                # os.chmod(path, 0o600)
+                # ensure only user has access to vault
+                os.chmod(path, 0o700)
                 print("pspm vault created for user", user)
                 return password
             except FileExistsError:

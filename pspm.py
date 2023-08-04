@@ -118,6 +118,9 @@ def generate_password(user):
     s = secrets.SystemRandom()
     s.seed(encryption_key)
     password = "".join(s.choice(charset) for _ in range(16))
+    # ensure that password is strong enough (avoid issue of randomly generated weak password)
+    while zxcvbn(password, user)["score"] != 4:
+        password = "".join(s.choice(charset) for _ in range(16))
     write_site(user, service, password)
     copy_to_clipboard(password)
 

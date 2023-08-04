@@ -89,11 +89,25 @@ rm : Remove site
         arg = input("> ").lower()
         if arg == "l":
             show_password(user)
+        elif arg == "rm":
+            remove_password(user)
         elif arg == "g":
             generate_password(user)
         elif arg == "x":
             sys.exit()
 
+def remove_password(user):
+    service = input("enter name of site to remove \n > ")
+    cwd = os.getcwd()
+    path = cwd + "/" + user + "_vault/" + service
+    choice = input(f"removing password for {service} are you sure you want to proceed? [y/n] \n > ").lower()
+    if choice != "y":
+        return
+    try:
+        os.remove(path)
+        print(f"password for site {service} deleted")
+    except FileNotFoundError:
+        print(f"no password exist for {service}")
 
 # writes the master password to the users .config file and ensures only user has read and write permissions to it
 def write_config(user, hashed_master):

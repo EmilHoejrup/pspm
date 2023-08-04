@@ -1,0 +1,9 @@
+argparse
+getpass
+argon2
+secrets
+base64
+time
+pyperclip
+cryptography
+zxcvbn 

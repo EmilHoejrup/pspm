@@ -23,9 +23,7 @@ def init(user):
 
 
 def hash_password(password):
-    # not sure if these parameters are optimal
-    params = {"time_cost": 30, "memory_cost": 102400, "parallelism": 8, "hash_len": 256}
-    return argon2.PasswordHasher(**params).hash(password.encode())
+    return argon2.PasswordHasher().hash(password.encode())
 
 
 def create_master_password(user):
@@ -79,11 +77,11 @@ def menu(user):
 
 Options:
 
-l  : Show list of sites
-s  : get password for site
+l  : Show list of services
+s  : Get password for service
 g  : Generate new password
 x  : Exit
-rm : Remove site
+r  : Remove service
 """
     while True:
         print(menu_options)
@@ -91,25 +89,26 @@ rm : Remove site
         if arg == "s":
             show_password(user)
         elif arg == "l":
-            list_sites(user)
-        elif arg == "rm":
+            list_services(user)
+        elif arg == "r":
             remove_password(user)
         elif arg == "g":
             generate_password(user)
         elif arg == "x":
             sys.exit()
-            
-def list_sites(user):
+
+
+def list_services(user):
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/"
     print("your stored passwords are:")
-    sites = os.listdir(path)
-    for s in sites:
+    services = os.listdir(path)
+    for s in services:
         print(s)
 
 
 def remove_password(user):
-    service = input("enter name of site to remove \n > ")
+    service = input("enter name of service to remove \n > ")
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/" + service
     choice = input(f"removing password for {service} are you sure you want to proceed? [y/n] \n > ").lower()
@@ -117,7 +116,7 @@ def remove_password(user):
         return
     try:
         os.remove(path)
-        print(f"password for site {service} deleted")
+        print(f"password for service {service} deleted")
     except FileNotFoundError:
         print(f"no password exist for {service}")
 
@@ -147,11 +146,11 @@ def generate_password(user):
     # ensure that password is strong enough (avoid issue of randomly generated weak password)
     while zxcvbn(password, user)["score"] != 4:
         password = "".join(s.choice(charset) for _ in range(16))
-    write_site(user, service, password)
+    write_service(user, service, password)
     copy_to_clipboard(password)
 
 
-def write_site(user, service, password):
+def write_service(user, service, password):
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/" + service
     salt = os.urandom(16)
@@ -166,7 +165,7 @@ def write_site(user, service, password):
 
 
 def show_password(user):
-    service = input("what site do you want the password for? \n > ")
+    service = input("what service do you want the password for? \n > ")
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/" + service
     try:
@@ -176,7 +175,7 @@ def show_password(user):
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         copy_to_clipboard(decrypted_password)
     except IOError:
-        print("site " + service + " not found")
+        print("service " + service + " not found")
 
 
 def generate_encryption_key(salt, user):

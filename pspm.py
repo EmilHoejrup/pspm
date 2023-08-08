@@ -77,41 +77,69 @@ def menu(user):
 
 Options:
 
-l  : Show list of services
-s  : Get password for service
-g  : Generate new password
-x  : Exit
-r  : Remove service
+(1) Show list of services
+(2) Get password for service
+(3) Generate new password
+(4) Remove service
+(5) Edit credentials
+(6) Exit
 """
     while True:
-        print(menu_options)
-        arg = input("> ").lower()
-        if arg == "s":
-            show_password(user)
-        elif arg == "l":
+        arg = get_choice(menu_options)
+        if arg == "1":
             list_services(user)
-        elif arg == "r":
-            remove_password(user)
-        elif arg == "g":
+        elif arg == "2":
+            show_password(user)
+        elif arg == "3":
             generate_password(user)
-        elif arg == "x":
+        elif arg == "4":
+            remove_password(user)
+        elif arg == "5":
+            edit_options(user)
+        elif arg == "6":
             sys.exit()
 
+def edit_options(user):
+    options = """\
+Options:
+        
+(1) Add username to site
+(2) Change password for site
+(3) Cancel
+        """
+    while True:
+        arg = get_choice(options)
+        if arg == "1":
+            add_username(user)
+        elif arg == "2":
+            change_password(user)
+        elif arg == "3":
+            return
+        
+def get_choice(options):
+    return input(options + "\n > ").lower()
 
 def list_services(user):
     cwd = os.getcwd()
     path = cwd + "/" + user + "_vault/"
-    print("your stored passwords are:")
     services = os.listdir(path)
+    if services == []:
+        print("Vault is empty!")
+        return
+    print("your stored passwords are:")
     for s in services:
         print(s)
 
+def get_service():
+    return input("Enter name of service \n > ")
+
 
 def remove_password(user):
-    service = input("enter name of service to remove \n > ")
-    cwd = os.getcwd()
-    path = cwd + "/" + user + "_vault/" + service
-    choice = input(f"removing password for {service} are you sure you want to proceed? [y/n] \n > ").lower()
+    service = get_service()
+    path = get_path_to_service(user, service)
+    choice = input(
+        f"removing password for {service} are you sure you want to proceed? [y/n] \n > "
+    ).lower()
     if choice != "y":
         return
     try:
@@ -119,6 +147,12 @@ def remove_password(user):
         print(f"password for service {service} deleted")
     except FileNotFoundError:
         print(f"no password exist for {service}")
+
+def get_path_to_service(user, service):
+    cwd = os.getcwd()
+    return cwd + "/" + user + "_vault/" + service
+    
+
 
 # writes the master password to the users .config file and ensures only user has read and write permissions to it
 def write_config(user, hashed_master):
@@ -133,29 +167,65 @@ def get_password():
 
 
 def generate_password(user):
+    safe_mode = True
     service = input(
-        """enter the name of the service you want to generate a password for
+        """Enter the name of the service you want to generate a password for or hit ENTER for advanced options
 > """
     )
-    charset = string.ascii_letters + string.punctuation + string.digits
+    if service == "":
+        length, charset = advanced_options()
+        safe_mode = False
+    elif exists(user, service):
+        print("Service alerady exists!")
+        return
+    else:
+        length = 16
+        charset = string.ascii_letters + string.punctuation + string.digits
     salt = os.urandom(16)
     encryption_key = generate_encryption_key(salt, user)
     s = secrets.SystemRandom()
     s.seed(encryption_key)
-    password = "".join(s.choice(charset) for _ in range(16))
+    password = "".join(s.choice(charset) for _ in range(length))
+    
     # ensure that password is strong enough (avoid issue of randomly generated weak password)
-    while zxcvbn(password, user)["score"] != 4:
-        password = "".join(s.choice(charset) for _ in range(16))
+    while safe_mode and zxcvbn(password, user)["score"] != 4:
+        password = "".join(s.choice(charset) for _ in range(length))
     write_service(user, service, password)
     copy_to_clipboard(password)
 
+def exists(user, service):
+    path = os.getcwd() + "/" + user + "_vault/"
+    return service in os.listdir(path)
+
+def advanced_options():
+    charset = ""
+    while True:
+        try:
+            length = int(input("Enter the desired password length\n > "))
+            if length < 12:
+                print("Alert: password length is shorter than recommended!")
+        except ValueError:
+            print("ERROR: length should be an integer! \nDefalut length 16 chosen \n")
+            length = 16   
+        chars = input("Enter all the allowed character types (l)etters, (s)pecial characters, (d)igits \n \n (can be combined) \n > ").lower()
+        if 'l' in chars:
+            charset = charset + string.ascii_letters
+        if 's' in chars:
+            charset = charset + string.punctuation
+        if 'd' in chars:
+            charset = charset + string.digits
+        if charset != "":
+            return length, charset
+        else:
+            print("Invalid options!")
+
 
 def write_service(user, service, password):
-    cwd = os.getcwd()
-    path = cwd + "/" + user + "_vault/" + service
+    service = get_service()
+    path = get_path_to_service(user, service)
     salt = os.urandom(16)
     # to avoid bug with newline in file - temporary fix
-    salt = salt.replace(b'\n',b'b')
+    salt = salt.replace(b"\n", b"b")
     with open(path, "wb") as file:
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
         encrypted_password = cipher.encrypt(password.encode())
@@ -211,9 +281,9 @@ if __name__ == "__main__":
     else:
         parser.print_help()
 
-#TODO implement edit function
-#TODO implement cli-options
-#TODO add option to specify length of password and chars allowed
-#TODO exception handling
-#TODO documentation
-#TODO split methods into smaller components
+# TODO implement edit function
+# TODO implement cli-options
+# TODO add option to specify length of password and chars allowed
+# TODO exception handling
+# TODO documentation
+# TODO split methods into smaller components

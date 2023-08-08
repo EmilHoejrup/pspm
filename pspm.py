@@ -155,8 +155,7 @@ def write_service(user, service, password):
     path = cwd + "/" + user + "_vault/" + service
     salt = os.urandom(16)
     # to avoid bug with newline in file - temporary fix
-    while b"\n" in salt:
-        salt = os.urandom(16)
+    salt = salt.replace(b'\n',b'b')
     with open(path, "wb") as file:
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
         encrypted_password = cipher.encrypt(password.encode())
@@ -211,3 +210,10 @@ if __name__ == "__main__":
         login(args.login)
     else:
         parser.print_help()
+
+#TODO implement edit function
+#TODO implement cli-options
+#TODO add option to specify length of password and chars allowed
+#TODO exception handling
+#TODO documentation
+#TODO split methods into smaller components

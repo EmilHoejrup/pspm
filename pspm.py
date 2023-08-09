@@ -17,6 +17,8 @@ from zxcvbn import zxcvbn
 
 def init(user):
     master_password = create_master_password(user)
+    global encryption_key
+    encryption_key = generate_encryption_key(master_password)
     hashed_master = hash_password(master_password)
     write_config(user, hashed_master)
     menu(user)
@@ -55,6 +57,8 @@ def login(user):
             provided_master = get_password()
             stored_master = get_master(user)
             if authenticate(stored_master, provided_master):
+                global encryption_key
+                encryption_key = generate_encryption_key(provided_master)
                 menu(user)
                 return
             else:
@@ -185,8 +189,6 @@ def generate_password(user):
     else:
         length = 16
         charset = string.ascii_letters + string.punctuation + string.digits
-    salt = os.urandom(16)
-    encryption_key = generate_encryption_key(salt, user)
     s = secrets.SystemRandom()
     s.seed(encryption_key)
     password = "".join(s.choice(charset) for _ in range(length))
@@ -235,7 +237,7 @@ def write_service(user, service, password):
 
 def encrypt(user, message):
     salt = os.urandom(16)
-    cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
+    cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
     return salt, cipher.encrypt(message.encode())
 
 
@@ -247,7 +249,7 @@ def show_password(user):
             lines = file.read().splitlines()
             salt = lines[0]
             encrypted_password = lines[1]
-        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
+        cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         copy_to_clipboard(decrypted_password, "password")
     except IOError or IndexError:
@@ -259,15 +261,16 @@ def show_username(user):
     try:
         with open(path, "rb") as file:
             lines = file.read().splitlines()
-            salt = lines[2]
+            # salt = lines[2]
             encrypted_username = lines[3]
-        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
+        cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
         decrypted_username = cipher.decrypt(encrypted_username).decode()
         copy_to_clipboard(decrypted_username, "username")
     except IOError or IndexError:
         print(f"username for service \"{service}\" not found")
 
-def generate_encryption_key(salt, user):
+def generate_encryption_key(master):
+    salt = os.urandom(16)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
         length=32,
@@ -275,7 +278,7 @@ def generate_encryption_key(salt, user):
         iterations=100000,
         backend=default_backend,
     )
-    return kdf.derive(get_master(user).encode())
+    return kdf.derive(master.encode())
 
 
 def copy_to_clipboard(password, text):
@@ -294,7 +297,8 @@ if __name__ == "__main__":
     parser.add_argument("--login", "-l", metavar="user", help="login as <user>")
 
     args = parser.parse_args()
-
+    encryption_key = ''
+    
     if args.init:
         init(args.init)
     elif args.login:

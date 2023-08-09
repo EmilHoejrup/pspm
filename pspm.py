@@ -5,7 +5,6 @@ import argon2
 import secrets
 import string
 import base64
-import time
 import pyperclip
 import sys
 from cryptography.hazmat.backends import default_backend
@@ -78,13 +77,13 @@ def get_master(user):
 def menu(user):
     menu_options = """\
 
-Options:
+Options (enter number):
 
 (1) Show list of services
 (2) Get password for service
 (3) Generate new password
 (4) Remove service
-(5) Edit credentials
+(5) Add username for service
 (6) Show username for service
 (7) Exit
 """
@@ -99,28 +98,11 @@ Options:
         elif arg == "4":
             remove_password(user)
         elif arg == "5":
-            edit_options(user)
+            add_username(user)
         elif arg == "6":
             show_username(user)
         elif arg == "7":
             sys.exit()
-
-def edit_options(user):
-    options = """\
-Edit options:
-        
-(1) Add username to site
-(2) Change password for site
-(3) Go back
-        """
-    while True:
-        arg = get_choice(options)
-        if arg == "1":
-            add_username(user)
-        elif arg == "2":
-            change_password(user)
-        elif arg == "3":
-            return
 
 def add_username(user):
     service = get_service()
@@ -155,15 +137,16 @@ def remove_password(user):
     service = get_service()
     path = get_path_to_service(user, service)
     choice = input(
-        f"removing password for {service} are you sure you want to proceed? [y/n] \n > "
+        f"removing password for \"{service}\" are you sure you want to proceed? [y/n] \n > "
     ).lower()
     if choice != "y":
+        print("Exiting to main menu \n")
         return
     try:
         os.remove(path)
-        print(f"password for service {service} deleted")
+        print(f"password for service \"{service}\" deleted")
     except FileNotFoundError:
-        print(f"no password exist for {service}")
+        print(f"no password exist for \"{service}\"")
 
 def get_path_to_service(user, service):
     cwd = os.getcwd()
@@ -186,11 +169,11 @@ def get_password():
 def generate_password(user):
     safe_mode = True
     service = input(
-        """Enter the name of the service you want to generate a password for or hit ENTER for advanced options
+        """Enter the name of the service you want to generate a password for or hit ENTER for custom password options
 > """
     )
     if service == "":
-        length, charset = advanced_options()
+        service, length, charset = custom_options()
         # user might have chosen unsafe password options
         safe_mode = False
     elif exists(user, service):
@@ -215,7 +198,9 @@ def exists(user, service):
     path = os.getcwd() + "/" + user + "_vault/"
     return service in os.listdir(path)
 
-def advanced_options():
+def custom_options():
+    print("Creating custom type password")
+    service = get_service()
     charset = ""
     while True:
         try:
@@ -233,7 +218,7 @@ def advanced_options():
         if 'd' in chars:
             charset = charset + string.digits
         if charset != "":
-            return length, charset
+            return service, length, charset
         else:
             print("Invalid options!")
 
@@ -262,7 +247,7 @@ def show_password(user):
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         copy_to_clipboard(decrypted_password, "password")
-    except IOError:
+    except IOError or IndexError:
         print("service " + service + " not found")
 
 def show_username(user):
@@ -277,7 +262,7 @@ def show_username(user):
         decrypted_username = cipher.decrypt(encrypted_username).decode()
         copy_to_clipboard(decrypted_username, "username")
     except IOError or IndexError:
-        print("username for service " + service + " not found")
+        print(f"username for service \"{service}\" not found")
 
 def generate_encryption_key(salt, user):
     kdf = PBKDF2HMAC(
@@ -292,9 +277,10 @@ def generate_encryption_key(salt, user):
 
 def copy_to_clipboard(password, text):
     pyperclip.copy(password)
-    print(text + " copied to clipboard. It will be deleted in 5 sec")
-    time.sleep(5)
+    print(text + " copied to clipboard. \nPress ENTER to continue and empty clipboard \n > ")
+    input()
     pyperclip.copy("")
+    
 
 
 if __name__ == "__main__":
@@ -315,7 +301,6 @@ if __name__ == "__main__":
 
 # TODO implement edit function
 # TODO implement cli-options
-# TODO add option to specify length of password and chars allowed
 # TODO exception handling
 # TODO documentation
 # TODO split methods into smaller components

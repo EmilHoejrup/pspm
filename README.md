@@ -11,3 +11,11 @@
 To install all required python modules run:
 
 pip install -r requirements.txt
+
+To create new pspm vault:
+
+python pspm.py --init <username>
+
+To login to existing vault:
+
+python pspm.py --login <username>

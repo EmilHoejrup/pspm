@@ -7,6 +7,7 @@ import string
 import base64
 import pyperclip
 import sys
+import time
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -58,6 +59,8 @@ def login(user):
                 return
             else:
                 print("incorrect password or username")
+                # Introduce time lag to counter brute force attacks
+                time.sleep(1)
     except FileNotFoundError:
         print("incorrect password or username") 
 

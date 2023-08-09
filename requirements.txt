@@ -1,9 +1,6 @@
 argparse
-getpass
-argon2
+argon2-cffi
 secrets
-base64
-time
 pyperclip
 cryptography
-zxcvbn 
+zxcvbn

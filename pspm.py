@@ -31,6 +31,7 @@ def create_master_password(user):
         print("create new pspm user \n")
         password = get_password()
         results = zxcvbn(password, user_inputs=user)
+        
         # ensures that password has highest possible zxcvbn score
         if results["score"] != 4:
             print("password not strong enough ", results["feedback"]["suggestions"])
@@ -49,15 +50,17 @@ def create_master_password(user):
 
 
 def login(user):
-    while True:
-        provided_master = get_password()
-        stored_master = get_master(user)
-        if authenticate(stored_master, provided_master):
-            menu(user)
-            return
-        else:
-            print("incorrect password or username")
-
+    try:
+        while True:
+            provided_master = get_password()
+            stored_master = get_master(user)
+            if authenticate(stored_master, provided_master):
+                menu(user)
+                return
+            else:
+                print("incorrect password or username")
+    except FileNotFoundError:
+        print("incorrect password or username") 
 
 def authenticate(stored, provided):
     try:
@@ -82,7 +85,8 @@ Options:
 (3) Generate new password
 (4) Remove service
 (5) Edit credentials
-(6) Exit
+(6) Show username for service
+(7) Exit
 """
     while True:
         arg = get_choice(menu_options)
@@ -97,15 +101,17 @@ Options:
         elif arg == "5":
             edit_options(user)
         elif arg == "6":
+            show_username(user)
+        elif arg == "7":
             sys.exit()
 
 def edit_options(user):
     options = """\
-Options:
+Edit options:
         
 (1) Add username to site
 (2) Change password for site
-(3) Cancel
+(3) Go back
         """
     while True:
         arg = get_choice(options)
@@ -115,7 +121,18 @@ Options:
             change_password(user)
         elif arg == "3":
             return
-        
+
+def add_username(user):
+    service = get_service()
+    if not exists(user, service):
+        print("Service does not exist! Generate a password first")
+        return
+    path = get_path_to_service(user, service)
+    username = input("Enter username \n > ")
+    salt, encrypted_username = encrypt(user, username)
+    with open(path, "ab") as file:
+        file.writelines([salt + b"\n", encrypted_username + b"\n"])
+
 def get_choice(options):
     return input(options + "\n > ").lower()
 
@@ -126,7 +143,7 @@ def list_services(user):
     if services == []:
         print("Vault is empty!")
         return
-    print("your stored passwords are:")
+    print("your stored passwords are: \n")
     for s in services:
         print(s)
 
@@ -174,6 +191,7 @@ def generate_password(user):
     )
     if service == "":
         length, charset = advanced_options()
+        # user might have chosen unsafe password options
         safe_mode = False
     elif exists(user, service):
         print("Service alerady exists!")
@@ -191,7 +209,7 @@ def generate_password(user):
     while safe_mode and zxcvbn(password, user)["score"] != 4:
         password = "".join(s.choice(charset) for _ in range(length))
     write_service(user, service, password)
-    copy_to_clipboard(password)
+    copy_to_clipboard(password, "password")
 
 def exists(user, service):
     path = os.getcwd() + "/" + user + "_vault/"
@@ -221,31 +239,45 @@ def advanced_options():
 
 
 def write_service(user, service, password):
-    service = get_service()
     path = get_path_to_service(user, service)
-    salt = os.urandom(16)
-    # to avoid bug with newline in file - temporary fix
-    salt = salt.replace(b"\n", b"b")
     with open(path, "wb") as file:
-        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
-        encrypted_password = cipher.encrypt(password.encode())
-        file.writelines([salt + b"\n", encrypted_password])
+        salt, encrypted_password = encrypt(user, password)
+        file.writelines([salt + b"\n", encrypted_password + b"\n"])
     os.chmod(path, 0o600)
+
+def encrypt(user, message):
+    salt = os.urandom(16)
+    cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
+    return salt, cipher.encrypt(message.encode())
 
 
 def show_password(user):
-    service = input("what service do you want the password for? \n > ")
-    cwd = os.getcwd()
-    path = cwd + "/" + user + "_vault/" + service
+    service = get_service()
+    path = get_path_to_service(user, service)
     try:
         with open(path, "rb") as file:
-            salt, encrypted_password = file.read().splitlines()
+            lines = file.read().splitlines()
+            salt = lines[0]
+            encrypted_password = lines[1]
         cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
         decrypted_password = cipher.decrypt(encrypted_password).decode()
-        copy_to_clipboard(decrypted_password)
+        copy_to_clipboard(decrypted_password, "password")
     except IOError:
         print("service " + service + " not found")
 
+def show_username(user):
+    service = get_service()
+    path = get_path_to_service(user, service)
+    try:
+        with open(path, "rb") as file:
+            lines = file.read().splitlines()
+            salt = lines[2]
+            encrypted_username = lines[3]
+        cipher = Fernet(base64.urlsafe_b64encode(generate_encryption_key(salt, user)))
+        decrypted_username = cipher.decrypt(encrypted_username).decode()
+        copy_to_clipboard(decrypted_username, "username")
+    except IOError or IndexError:
+        print("username for service " + service + " not found")
 
 def generate_encryption_key(salt, user):
     kdf = PBKDF2HMAC(
@@ -258,9 +290,9 @@ def generate_encryption_key(salt, user):
     return kdf.derive(get_master(user).encode())
 
 
-def copy_to_clipboard(password):
+def copy_to_clipboard(password, text):
     pyperclip.copy(password)
-    print("Password copied to clipboard. It will be deleted in 5 sec")
+    print(text + " copied to clipboard. It will be deleted in 5 sec")
     time.sleep(5)
     pyperclip.copy("")
 

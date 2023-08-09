@@ -17,8 +17,7 @@ from zxcvbn import zxcvbn
 
 def init(user):
     master_password = create_master_password(user)
-    global encryption_key
-    encryption_key = generate_encryption_key(master_password)
+    generate_encryption_key(master_password)
     hashed_master = hash_password(master_password)
     write_config(user, hashed_master)
     menu(user)
@@ -57,8 +56,7 @@ def login(user):
             provided_master = get_password()
             stored_master = get_master(user)
             if authenticate(stored_master, provided_master):
-                global encryption_key
-                encryption_key = generate_encryption_key(provided_master)
+                generate_encryption_key(provided_master)
                 menu(user)
                 return
             else:
@@ -260,16 +258,21 @@ def show_username(user):
     path = get_path_to_service(user, service)
     try:
         with open(path, "rb") as file:
-            lines = file.read().splitlines()
-            # salt = lines[2]
-            encrypted_username = lines[3]
+            try:
+                lines = file.read().splitlines()
+                # salt = lines[2]
+                encrypted_username = lines[3]
+            except IndexError:
+                print(f"username for service \"{service}\" not found")
+                return
         cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
         decrypted_username = cipher.decrypt(encrypted_username).decode()
         copy_to_clipboard(decrypted_username, "username")
-    except IOError or IndexError:
+    except IOError:
         print(f"username for service \"{service}\" not found")
 
 def generate_encryption_key(master):
+    global encryption_key
     salt = os.urandom(16)
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
@@ -278,7 +281,7 @@ def generate_encryption_key(master):
         iterations=100000,
         backend=default_backend,
     )
-    return kdf.derive(master.encode())
+    encryption_key = kdf.derive(master.encode())
 
 
 def copy_to_clipboard(password, text):

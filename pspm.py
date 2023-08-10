@@ -93,7 +93,8 @@ Options (enter number):
 (4) Remove service
 (5) Add username for service
 (6) Show username for service
-(7) Exit
+(7) Generate custom password
+(8) Exit
 """
     while True:
         arg = get_choice(menu_options)
@@ -110,6 +111,8 @@ Options (enter number):
         elif arg == "6":
             show_username(user)
         elif arg == "7":
+            custom_options(user)
+        elif arg == "8":
             sys.exit()
 
 
@@ -179,30 +182,16 @@ def get_password():
 
 
 def generate_password(user):
-    safe_mode = True
-    service = input(
-        """Enter the name of the service you want to generate a password for or hit ENTER for custom password options
-> """
-    )
-    if service == "":
-        service, length, charset = custom_options()
-        # user might have chosen unsafe password options
-        safe_mode = False
-    elif exists(user, service):
-        print("Service alerady exists!")
-        return
-    else:
-        length = 16
-        charset = string.ascii_letters + string.punctuation + string.digits
-    s = secrets.SystemRandom()
-    s.seed(m_key)
-    password = "".join(s.choice(charset) for _ in range(length))
-
-    # ensure that password is strong enough (avoid issue of randomly generated weak password)
-    while safe_mode and zxcvbn(password, user)["score"] != 4:
-        password = "".join(s.choice(charset) for _ in range(length))
-    write_service(user, service, password)
-    copy_to_clipboard(password, "password")
+    service = get_service()
+    if exists(user, service):
+        choice = input("Service alerady exists! Do you want to override existing password? [Y/n] \n > ").lower()
+        if choice == 'y':
+            pass
+        else:
+            return
+    length = 16
+    charset = string.ascii_letters + string.punctuation + string.digits
+    generate(user, charset, service, length, safe=True)
 
 
 def exists(user, service):
@@ -210,9 +199,15 @@ def exists(user, service):
     return service in os.listdir(path)
 
 
-def custom_options():
+def custom_options(user):
     print("Creating custom type password")
     service = get_service()
+    if exists(user, service):
+        choice = input("Service alerady exists! Do you want to override existing password? [Y/n] \n > ").lower()
+        if choice == 'y':
+            pass
+        else:
+            return
     charset = ""
     while True:
         try:
@@ -232,10 +227,20 @@ def custom_options():
         if "d" in chars:
             charset = charset + string.digits
         if charset != "":
-            return service, length, charset
+            generate(user, charset, service, length, safe=False)
+            break
         else:
             print("Invalid options!")
 
+def generate(user, charset, service, length, safe):
+    s = secrets.SystemRandom()
+    s.seed(m_key)
+    password = "".join(s.choice(charset) for _ in range(length))
+    if safe:
+        while zxcvbn(password, user)["score"] != 4:
+            password = "".join(s.choice(charset) for _ in range(length))
+    write_service(user, service, password)
+    copy_to_clipboard(password, "password")
 
 def write_service(user, service, password):
     path = get_path_to_service(user, service)

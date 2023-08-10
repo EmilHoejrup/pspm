@@ -12,6 +12,10 @@ To install all required python modules run:
 
 pip install -r requirements.txt
 
+NOTE: if installing argon2 this way does not work, try installing it manually and run the above command again:
+
+pip install argon2-cffi
+
 To create new pspm vault:
 
 python pspm.py --init <username>

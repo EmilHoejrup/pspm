@@ -92,7 +92,7 @@ Options (enter number):
 (3) Generate new password
 (4) Remove service
 (5) Add username for service
-(6) Show username for service
+(6) Get username for service
 (7) Generate custom password
 (8) Exit
 """
@@ -122,7 +122,7 @@ def add_username(user):
         print("Service does not exist! Generate a password first")
         return
     path = get_path_to_service(user, service)
-    username = input("Enter username \n > ")
+    username = getpass.getpass("Enter username \n > ")
     encrypted_username = encrypt(username)
     with open(path, "ab") as file:
         file.write(encrypted_username)

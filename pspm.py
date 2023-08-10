@@ -17,11 +17,14 @@ from zxcvbn import zxcvbn
 
 def init(user):
     master_password = create_master_password(user)
-    generate_encryption_key(master_password)
+    create_master_key(user, master_password)
     hashed_master = hash_password(master_password)
     write_config(user, hashed_master)
     menu(user)
 
+def create_master_key(user, master_password):
+    global m_key 
+    m_key = generate_encryption_key(user.encode(), master_password.encode())
 
 def hash_password(password):
     return argon2.PasswordHasher().hash(password.encode())
@@ -56,7 +59,7 @@ def login(user):
             provided_master = get_password()
             stored_master = get_master(user)
             if authenticate(stored_master, provided_master):
-                generate_encryption_key(provided_master)
+                create_master_key(user, provided_master)
                 menu(user)
                 return
             else:
@@ -116,7 +119,7 @@ def add_username(user):
         return
     path = get_path_to_service(user, service)
     username = input("Enter username \n > ")
-    salt, encrypted_username = encrypt(user, username)
+    salt, encrypted_username = encrypt(username)
     with open(path, "ab") as file:
         file.writelines([salt + b"\n", encrypted_username + b"\n"])
 
@@ -188,7 +191,7 @@ def generate_password(user):
         length = 16
         charset = string.ascii_letters + string.punctuation + string.digits
     s = secrets.SystemRandom()
-    s.seed(encryption_key)
+    s.seed(m_key)
     password = "".join(s.choice(charset) for _ in range(length))
     
     # ensure that password is strong enough (avoid issue of randomly generated weak password)
@@ -229,13 +232,13 @@ def custom_options():
 def write_service(user, service, password):
     path = get_path_to_service(user, service)
     with open(path, "wb") as file:
-        salt, encrypted_password = encrypt(user, password)
+        salt, encrypted_password = encrypt(password)
         file.writelines([salt + b"\n", encrypted_password + b"\n"])
     os.chmod(path, 0o600)
 
-def encrypt(user, message):
+def encrypt(message):
     salt = os.urandom(16)
-    cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
+    cipher = Fernet(base64.urlsafe_b64encode(m_key))
     return salt, cipher.encrypt(message.encode())
 
 
@@ -247,7 +250,7 @@ def show_password(user):
             lines = file.read().splitlines()
             salt = lines[0]
             encrypted_password = lines[1]
-        cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
+        cipher = Fernet(base64.urlsafe_b64encode(m_key)) #TODO should be generate_encryptio_key(salt, key) so that I on login generate a salt from username, and generate master_key from master pass. This key is sent around in the functions to generate specific keys for en- and decrypting. Son m_key = gen_enc_key(salt(username), master-password)
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         copy_to_clipboard(decrypted_password, "password")
     except IOError or IndexError:
@@ -260,20 +263,18 @@ def show_username(user):
         with open(path, "rb") as file:
             try:
                 lines = file.read().splitlines()
-                # salt = lines[2]
+                salt = lines[2]
                 encrypted_username = lines[3]
             except IndexError:
                 print(f"username for service \"{service}\" not found")
                 return
-        cipher = Fernet(base64.urlsafe_b64encode(encryption_key))
+        cipher = Fernet(base64.urlsafe_b64encode(m_key))
         decrypted_username = cipher.decrypt(encrypted_username).decode()
         copy_to_clipboard(decrypted_username, "username")
     except IOError:
         print(f"username for service \"{service}\" not found")
 
-def generate_encryption_key(master):
-    global encryption_key
-    salt = os.urandom(16)
+def generate_encryption_key(salt, key):
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256,
         length=32,
@@ -281,7 +282,7 @@ def generate_encryption_key(master):
         iterations=100000,
         backend=default_backend,
     )
-    encryption_key = kdf.derive(master.encode())
+    return kdf.derive(key)
 
 
 def copy_to_clipboard(password, text):
@@ -300,7 +301,7 @@ if __name__ == "__main__":
     parser.add_argument("--login", "-l", metavar="user", help="login as <user>")
 
     args = parser.parse_args()
-    encryption_key = ''
+    m_key = ''
     
     if args.init:
         init(args.init)

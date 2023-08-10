@@ -119,9 +119,9 @@ def add_username(user):
         return
     path = get_path_to_service(user, service)
     username = input("Enter username \n > ")
-    salt, encrypted_username = encrypt(username)
+    encrypted_username = encrypt(username)
     with open(path, "ab") as file:
-        file.writelines([salt + b"\n", encrypted_username + b"\n"])
+        file.write(encrypted_username)
 
 def get_choice(options):
     return input(options + "\n > ").lower()
@@ -232,14 +232,13 @@ def custom_options():
 def write_service(user, service, password):
     path = get_path_to_service(user, service)
     with open(path, "wb") as file:
-        salt, encrypted_password = encrypt(password)
-        file.writelines([salt + b"\n", encrypted_password + b"\n"])
+        encrypted_password = encrypt(password)
+        file.write(encrypted_password + b"\n")
     os.chmod(path, 0o600)
 
 def encrypt(message):
-    salt = os.urandom(16)
     cipher = Fernet(base64.urlsafe_b64encode(m_key))
-    return salt, cipher.encrypt(message.encode())
+    return cipher.encrypt(message.encode())
 
 
 def show_password(user):
@@ -248,8 +247,7 @@ def show_password(user):
     try:
         with open(path, "rb") as file:
             lines = file.read().splitlines()
-            salt = lines[0]
-            encrypted_password = lines[1]
+            encrypted_password = lines[0]
         cipher = Fernet(base64.urlsafe_b64encode(m_key)) #TODO should be generate_encryptio_key(salt, key) so that I on login generate a salt from username, and generate master_key from master pass. This key is sent around in the functions to generate specific keys for en- and decrypting. Son m_key = gen_enc_key(salt(username), master-password)
         decrypted_password = cipher.decrypt(encrypted_password).decode()
         copy_to_clipboard(decrypted_password, "password")
@@ -263,8 +261,7 @@ def show_username(user):
         with open(path, "rb") as file:
             try:
                 lines = file.read().splitlines()
-                salt = lines[2]
-                encrypted_username = lines[3]
+                encrypted_username = lines[1]
             except IndexError:
                 print(f"username for service \"{service}\" not found")
                 return

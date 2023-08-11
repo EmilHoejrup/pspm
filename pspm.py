@@ -13,6 +13,9 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 from zxcvbn import zxcvbn
 
+# Global variable for the master key
+m_key = ""
+
 
 def init(user):
     master_password = create_master_password(user)
@@ -20,15 +23,6 @@ def init(user):
     hashed_master = hash_password(master_password)
     write_config(user, hashed_master)
     menu(user)
-
-
-def create_master_key(user, master_password):
-    global m_key
-    m_key = generate_encryption_key(user.encode(), master_password.encode())
-
-
-def hash_password(password):
-    return argon2.PasswordHasher().hash(password.encode())
 
 
 def create_master_password(user):
@@ -52,6 +46,15 @@ def create_master_password(user):
             except FileExistsError:
                 print("user already exists! use another username")
                 sys.exit()
+
+
+def create_master_key(user, master_password):
+    global m_key
+    m_key = generate_encryption_key(user.encode(), master_password.encode())
+
+
+def hash_password(password):
+    return argon2.PasswordHasher().hash(password.encode())
 
 
 def login(user):
@@ -109,7 +112,7 @@ Options (enter number):
         elif arg == "5":
             add_username(user)
         elif arg == "6":
-            show_username(user)
+            get_username(user)
         elif arg == "7":
             custom_options(user)
         elif arg == "8":
@@ -184,8 +187,10 @@ def get_password():
 def generate_password(user):
     service = get_service()
     if exists(user, service):
-        choice = input("Service alerady exists! Do you want to override existing password? [Y/n] \n > ").lower()
-        if choice == 'y':
+        choice = input(
+            "Service alerady exists! Do you want to override existing password? [Y/n] \n > "
+        ).lower()
+        if choice == "y":
             pass
         else:
             return
@@ -203,8 +208,10 @@ def custom_options(user):
     print("Creating custom type password")
     service = get_service()
     if exists(user, service):
-        choice = input("Service alerady exists! Do you want to override existing password? [Y/n] \n > ").lower()
-        if choice == 'y':
+        choice = input(
+            "Service alerady exists! Do you want to override existing password? [Y/n] \n > "
+        ).lower()
+        if choice == "y":
             pass
         else:
             return
@@ -232,6 +239,7 @@ def custom_options(user):
         else:
             print("Invalid options!")
 
+
 def generate(user, charset, service, length, safe):
     s = secrets.SystemRandom()
     s.seed(m_key)
@@ -241,6 +249,7 @@ def generate(user, charset, service, length, safe):
             password = "".join(s.choice(charset) for _ in range(length))
     write_service(user, service, password)
     copy_to_clipboard(password, "password")
+
 
 def write_service(user, service, password):
     path = get_path_to_service(user, service)
@@ -269,7 +278,7 @@ def show_password(user):
         print("service " + service + " not found")
 
 
-def show_username(user):
+def get_username(user):
     service = get_service()
     path = get_path_to_service(user, service)
     try:
@@ -309,14 +318,23 @@ def copy_to_clipboard(password, text):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser("pspm (pretty secure password manager)")
-    parser.add_argument(
-        "--init", "-i", metavar="user", help="initialize new pspm vault for <user>"
+    parser = argparse.ArgumentParser(
+        "pspm (pretty secure password manager) \nA password manager for storage, management and generation of passwords. \nTo create a new vault use the --init flag. To login as existing user use the --login flag."
     )
-    parser.add_argument("--login", "-l", metavar="user", help="login as <user>")
+    parser.add_argument(
+        "--init",
+        "-i",
+        metavar="user",
+        help="initialize new pspm vault for the specified user",
+    )
+    parser.add_argument(
+        "--login",
+        "-l",
+        metavar="user",
+        help="login to the pspm vault as the specified user",
+    )
 
     args = parser.parse_args()
-    m_key = ""
 
     if args.init:
         init(args.init)
@@ -324,9 +342,3 @@ if __name__ == "__main__":
         login(args.login)
     else:
         parser.print_help()
-
-# TODO implement edit function
-# TODO implement cli-options
-# TODO exception handling
-# TODO documentation
-# TODO split methods into smaller components
